@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   loadTensorflowModel,
@@ -36,6 +36,32 @@ export default function App() {
       const outputs = plugin.model?.runSync([resized]) as any[];
 
       const detectionData = outputs[0] as Float32Array;
+
+      const num_boxes = 8400;
+      const num_features = 84;
+      const confidence_threshold = 0.5;
+
+      for (let i = 0; i < num_boxes; i++) {
+        let maxScore = 0;
+        let classIndex = -1;
+
+        for (let j = 4; j < num_features; j++) {
+          const score = detectionData[j * num_boxes + i];
+
+          if (score > maxScore) {
+            maxScore = score;
+            classIndex = j - 4;
+          }
+        }
+
+        if (maxScore > confidence_threshold) {
+          console.log(
+            `Detected Class #${classIndex} with ${Math.round(
+              maxScore * 100
+            )}% confidence`
+          );
+        }
+      }
 
       console.log(`First value: ${detectionData[0]}`);
     },
