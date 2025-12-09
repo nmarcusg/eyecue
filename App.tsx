@@ -5,6 +5,8 @@ import {
   loadTensorflowModel,
   useTensorflowModel,
 } from 'react-native-fast-tflite';
+import { useResizePlugin } from 'vision-camera-resize-plugin';
+
 import {
   Camera,
   useCameraDevice,
@@ -17,11 +19,28 @@ export default function App() {
   const [toggleCamera, setToggleCamera] = useState<boolean>(false);
   const { hasPermission, requestPermission } = useCameraPermission();
   const plugin = useTensorflowModel(require('./assets/yolov8n.tflite'));
+  const { resize } = useResizePlugin();
 
-  const frameProcessor = useFrameProcessor((frame) => {
-    'worklet';
-    console.log(`Frame: ${frame.width}x${frame.height}`);
-  }, []);
+  const frameProcessor = useFrameProcessor(
+    (frame) => {
+      'worklet';
+
+      const resized = resize(frame, {
+        scale: {
+          width: 640,
+          height: 640,
+        },
+        pixelFormat: 'rgb',
+        dataType: 'float32',
+      });
+      const outputs = plugin.model?.runSync([resized]) as any[];
+
+      const detectionData = outputs[0] as Float32Array;
+
+      console.log(`First value: ${detectionData[0]}`);
+    },
+    [plugin]
+  );
 
   if (plugin.state === 'loading') {
     return (
