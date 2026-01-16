@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Button, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   loadTensorflowModel,
@@ -13,7 +13,7 @@ import {
   useCameraPermission,
   useFrameProcessor,
 } from 'react-native-vision-camera';
-
+import * as Speech from 'expo-speech';
 export default function App() {
   const device = useCameraDevice('back');
   const [toggleCamera, setToggleCamera] = useState<boolean>(false);
@@ -21,8 +21,17 @@ export default function App() {
   const plugin = useTensorflowModel(require('./assets/yolov8n.tflite'));
   const { resize } = useResizePlugin();
   const [label, setLabel] = useState<string>("Scanning...")
-  const updateLabel = Worklets.createRunOnJS((text: string) => {
-    setLabel(text);
+  const lastSpokenTimestamp = useRef<number>(0)
+  
+  const handleDetection = Worklets.createRunOnJS((name: string) => {
+    setLabel(name);
+
+    const now = Date.now();
+
+    if (now - lastSpokenTimestamp.current > 3000) {
+      Speech.speak(name);
+      lastSpokenTimestamp.current = now;
+    }
   })
   const COCO_LABELS: string[] = [
   'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
@@ -70,7 +79,8 @@ export default function App() {
         if (maxScore > confidence_threshold) {
           const name = COCO_LABELS[classIndex];
 
-          updateLabel(name);
+          handleDetection(name);
+
           console.log(
             `Detected Class #${classIndex} with ${Math.round(
               maxScore * 100
@@ -81,7 +91,7 @@ export default function App() {
 
       console.log(`First value: ${detectionData[0]}`);
     },
-    [plugin, updateLabel]
+    [plugin, handleDetection]
   );
 
   if (plugin.state === 'loading') {
