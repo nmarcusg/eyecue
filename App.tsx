@@ -14,6 +14,8 @@ import {
   useFrameProcessor,
 } from 'react-native-vision-camera';
 import * as Speech from 'expo-speech';
+import { COCO_LABELS } from './src/constants/cocoLabels';
+
 export default function App() {
   const device = useCameraDevice('back');
   const [toggleCamera, setToggleCamera] = useState<boolean>(false);
@@ -33,16 +35,7 @@ export default function App() {
       lastSpokenTimestamp.current = now;
     }
   })
-  const COCO_LABELS: string[] = [
-  'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
-  'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
-  'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
-  'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket', 'bottle',
-  'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple', 'sandwich', 'orange',
-  'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch', 'potted plant', 'bed',
-  'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven',
-  'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
-];
+  
   const frameProcessor = useFrameProcessor(
     (frame) => {
       'worklet';
