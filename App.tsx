@@ -16,6 +16,7 @@ import {
 import * as Speech from 'expo-speech';
 import { COCO_LABELS } from './src/constants/cocoLabels';
 import { DetectionOverlay } from './src/components/DetectionOverlay';
+import { DetectionControls } from './src/components/DetectionControls';
 
 export default function App() {
   const device = useCameraDevice('back');
@@ -132,8 +133,8 @@ export default function App() {
         isActive={toggleCamera}
         frameProcessor={frameProcessor}
       />
-      <DetectionOverlay label={label} />
-      <Button title="turn" onPress={() => setToggleCamera(!toggleCamera)} />
+      <DetectionOverlay label={label}  />
+      <DetectionControls isActive={toggleCamera} onToggle={() => setToggleCamera(prev => !prev)} />
     </View>
   );
 }
