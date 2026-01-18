@@ -1,10 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState, useRef } from 'react';
 import { Button, Pressable, StyleSheet, Text, View } from 'react-native';
-import {
-  loadTensorflowModel,
-  useTensorflowModel,
-} from 'react-native-fast-tflite';
+
 import { useResizePlugin } from 'vision-camera-resize-plugin';
 import { Worklets } from 'react-native-worklets-core';
 import {
@@ -17,16 +14,17 @@ import * as Speech from 'expo-speech';
 import { COCO_LABELS } from './src/constants/cocoLabels';
 import { DetectionOverlay } from './src/components/DetectionOverlay';
 import { DetectionControls } from './src/components/DetectionControls';
+import { useModelSetup} from './src/hooks/useModelSetup';
 
 export default function App() {
   const device = useCameraDevice('back');
   const [toggleCamera, setToggleCamera] = useState<boolean>(false);
   const { hasPermission, requestPermission } = useCameraPermission();
-  const plugin = useTensorflowModel(require('./assets/yolov8n.tflite'));
   const { resize } = useResizePlugin();
   const [label, setLabel] = useState<string>("Scanning...")
   const lastSpokenTimestamp = useRef<number>(0)
-  
+  const { model, state } = useModelSetup();
+
   const handleDetection = Worklets.createRunOnJS((name: string) => {
     setLabel(name);
 
@@ -50,7 +48,7 @@ export default function App() {
         pixelFormat: 'rgb',
         dataType: 'float32',
       });
-      const outputs = plugin.model?.runSync([resized]) as any[];
+      const outputs = model?.runSync([resized]) as any[];
 
       const detectionData = outputs[0] as Float32Array;
 
@@ -86,10 +84,10 @@ export default function App() {
 
       console.log(`First value: ${detectionData[0]}`);
     },
-    [plugin, handleDetection]
+    [model, handleDetection]
   );
 
-  if (plugin.state === 'loading') {
+  if (state === 'loading') {
     return (
       <View>
         <Text>Loading AI Model...</Text>
@@ -97,7 +95,7 @@ export default function App() {
     );
   }
 
-  if (plugin.state === 'error') {
+  if (state === 'error') {
     return (
       <View>
         <Text>Failed to load model!</Text>
