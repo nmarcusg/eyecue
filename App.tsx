@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback} from 'react';
+import { useState, useCallback} from 'react';
 import { StyleSheet, View } from 'react-native';
 import { LoadingView, ErrorView, PermissionView, NoDeviceView } from './src/components/FallbackViews';
 
@@ -14,28 +14,32 @@ import { DetectionOverlay } from './src/components/DetectionOverlay';
 import { DetectionControls } from './src/components/DetectionControls';
 import { useModelSetup } from './src/hooks/useModelSetup';
 import { useObjectDetection } from './src/hooks/useObjectDetection';
-
+import { useDetectionSpeech } from './src/hooks/useDetectionSpeech';
 const SPEECH_COOLDOWN_MS = 3000;
 
 export default function App() {
   const device = useCameraDevice('back');
-  const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const { hasPermission, requestPermission } = useCameraPermission();
-  const [label, setLabel] = useState<string>("Scanning...")
-  const lastSpokenTimestamp = useRef<number>(0)
   const { model, state } = useModelSetup();
-  const handleDetectionCallback = useCallback((name: string) => {
-    setLabel(name);
+  
+  const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
+  const [label, setLabel] = useState<string>("Scanning...")
+  
+  const speakDetection = useDetectionSpeech(SPEECH_COOLDOWN_MS);
+  
+  const handleDetectionCallback = useCallback(
+    (name: string) => {
+      setLabel(name);
+      speakDetection(name);
+    },
+    [speakDetection]
+  );
 
-    const now = Date.now();
+  const onToggleCamera = useCallback(() => {
+    setIsCameraActive((prev) => !prev);
+  }, []);
 
-    if (now - lastSpokenTimestamp.current > SPEECH_COOLDOWN_MS) {
-      Speech.speak(name);
-      lastSpokenTimestamp.current = now;
-    }
-  },[]);
   const frameProcessor = useObjectDetection (model, handleDetectionCallback);
-
 
   if (state === 'loading') {
     return <LoadingView />;
@@ -58,7 +62,7 @@ export default function App() {
         frameProcessor={frameProcessor}
       />
       <DetectionOverlay label={label}  />
-      <DetectionControls isActive={isCameraActive} onToggle={() => setIsCameraActive(prev => !prev)} />
+      <DetectionControls isActive={isCameraActive} onToggle={onToggleCamera} />
     </View>
   );
 }
