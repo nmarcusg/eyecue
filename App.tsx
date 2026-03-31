@@ -1,6 +1,5 @@
-import { StatusBar } from 'expo-status-bar';
 import { useState, useRef, useCallback} from 'react';
-import { Button, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { LoadingView, ErrorView, PermissionView, NoDeviceView } from './src/components/FallbackViews';
 
 import {
@@ -16,27 +15,25 @@ import { DetectionControls } from './src/components/DetectionControls';
 import { useModelSetup } from './src/hooks/useModelSetup';
 import { useObjectDetection } from './src/hooks/useObjectDetection';
 
+const SPEECH_COOLDOWN_MS = 3000;
+
 export default function App() {
   const device = useCameraDevice('back');
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const { hasPermission, requestPermission } = useCameraPermission();
-  
   const [label, setLabel] = useState<string>("Scanning...")
   const lastSpokenTimestamp = useRef<number>(0)
-
   const { model, state } = useModelSetup();
-
   const handleDetectionCallback = useCallback((name: string) => {
     setLabel(name);
 
     const now = Date.now();
 
-    if (now - lastSpokenTimestamp.current > 3000) {
+    if (now - lastSpokenTimestamp.current > SPEECH_COOLDOWN_MS) {
       Speech.speak(name);
       lastSpokenTimestamp.current = now;
     }
   },[]);
-  
   const frameProcessor = useObjectDetection (model, handleDetectionCallback);
 
 
