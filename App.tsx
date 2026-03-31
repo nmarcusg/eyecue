@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { useState, useRef, useCallback} from 'react';
 import { Button, StyleSheet, Text, View } from 'react-native';
+import { LoadingView, ErrorView, PermissionView, NoDeviceView } from './src/components/FallbackViews';
 
 import {
   Camera,
@@ -40,40 +41,16 @@ export default function App() {
 
 
   if (state === 'loading') {
-    return (
-      <View>
-        <Text>Loading AI Model...</Text>
-      </View>
-    );
+    return <LoadingView />;
   }
-
   if (state === 'error') {
-    return (
-      <View>
-        <Text>Failed to load model!</Text>
-      </View>
-    );
+    return <ErrorView />;
   }
-
   if (!hasPermission)
-    return (
-      <View style={styles.container}>
-        <Text>
-          Camera isn't allowed, click Allow for the app to get access!
-        </Text>
-        <Button title="Allow me pls" onPress={requestPermission} />
-        <StatusBar style="auto" />
-      </View>
-    );
+    return <PermissionView onRequestPermission={requestPermission} />;
 
   if (device == null)
-    return (
-      <View style={styles.container}>
-        <Text>CNo camera detectesd!!!</Text>
-        <Button title="Allow me pls" onPress={requestPermission} />
-        <StatusBar style="auto" />
-      </View>
-    );
+    return <NoDeviceView />;
 
   return (
     <View style={styles.container}>
