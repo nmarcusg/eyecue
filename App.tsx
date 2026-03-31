@@ -17,7 +17,7 @@ import { useObjectDetection } from './src/hooks/useObjectDetection';
 
 export default function App() {
   const device = useCameraDevice('back');
-  const [toggleCamera, setToggleCamera] = useState<boolean>(false);
+  const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const { hasPermission, requestPermission } = useCameraPermission();
   
   const [label, setLabel] = useState<string>("Scanning...")
@@ -80,11 +80,11 @@ export default function App() {
       <Camera
         style={StyleSheet.absoluteFill}
         device={device}
-        isActive={toggleCamera}
+        isActive={isCameraActive}
         frameProcessor={frameProcessor}
       />
       <DetectionOverlay label={label}  />
-      <DetectionControls isActive={toggleCamera} onToggle={() => setToggleCamera(prev => !prev)} />
+      <DetectionControls isActive={isCameraActive} onToggle={() => setIsCameraActive(prev => !prev)} />
     </View>
   );
 }
