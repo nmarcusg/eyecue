@@ -1,7 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { useState, useRef } from 'react';
 import { Button, StyleSheet, Text, View } from 'react-native';
-import { useResizePlugin } from 'vision-camera-resize-plugin';
 
 import {
   Camera,
@@ -11,7 +10,6 @@ import {
 import * as Speech from 'expo-speech';
 
 //hooks, utils, ui
-import { COCO_LABELS } from './src/constants/cocoLabels';
 import { DetectionOverlay } from './src/components/DetectionOverlay';
 import { DetectionControls } from './src/components/DetectionControls';
 import { useModelSetup } from './src/hooks/useModelSetup';
