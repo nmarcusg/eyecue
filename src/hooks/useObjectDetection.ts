@@ -1,5 +1,5 @@
 import { useResizePlugin } from 'vision-camera-resize-plugin';
-import { Worklets } from 'react-native-worklets-core';
+import { useSharedValue, Worklets } from 'react-native-worklets-core';
 import { useFrameProcessor } from 'react-native-vision-camera';
 import { COCO_LABELS } from '../constants/cocoLabels';
 import { useTensorflowModel } from 'react-native-fast-tflite';
@@ -11,6 +11,7 @@ type InferenceOutputs = readonly [Float32Array, ...unknown[]];
 const NUM_BOXES = 8400;
 const NUM_FEATURES = 84;
 const CONFIDENCE_THRESHOLD = 0.5;
+const INFERENCE_INTERVAL_MS = 200;
 
 export function useObjectDetection(
   model: TfliteModel,
@@ -18,6 +19,7 @@ export function useObjectDetection(
 ) {
   const { resize } = useResizePlugin();
   const runOnJs = Worklets.createRunOnJS(onDetection);
+  const lastRunTime = useSharedValue(0);
 
   const frameProcessor = useFrameProcessor(
     (frame) => {
@@ -25,6 +27,16 @@ export function useObjectDetection(
 
       if (model == null) return;
 
+
+      //throttle inference to prevent overload
+      const now = Date.now();
+
+      if (now - lastRunTime.value < INFERENCE_INTERVAL_MS) {
+        return
+      };
+      lastRunTime.value = now;
+      
+      try {
       const resized = resize(frame, {
         scale: { width: 640, height: 640 },
         pixelFormat: 'rgb',
@@ -33,6 +45,10 @@ export function useObjectDetection(
 
       const outputs = model.runSync([resized]) as unknown as InferenceOutputs;
       const detectionData = outputs[0];
+
+
+      let bestOverallScore = 0;
+      let bestOverallClassIndex = -1;
 
       for (let i = 0; i < NUM_BOXES; i++) {
         let maxScore = 0;
@@ -46,16 +62,26 @@ export function useObjectDetection(
           }
         }
 
-        if (maxScore <= CONFIDENCE_THRESHOLD) continue;
-        if (classIndex < 0 || classIndex >= COCO_LABELS.length) continue;
-
-        const name = COCO_LABELS[classIndex];
-        if (!name) continue;
-
-        runOnJs(name);
+        if (maxScore > bestOverallScore) {
+          bestOverallScore = maxScore;
+          bestOverallClassIndex = classIndex;
+        }
       }
-    },
-    [model, runOnJs]
+
+      if (
+        bestOverallScore > CONFIDENCE_THRESHOLD && bestOverallClassIndex >= 0 && bestOverallClassIndex < COCO_LABELS.length
+      ) {
+        const name = COCO_LABELS[bestOverallClassIndex];
+        if (name) {
+          runOnJs(name)
+        }
+      }
+    } 
+    catch (error) {
+      // Handle errors gracefully
+      console.error('Error during object detection:', error);
+    }},  
+    [model, runOnJs, lastRunTime]
   );
 
   return frameProcessor;
