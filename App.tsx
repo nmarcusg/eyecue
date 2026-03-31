@@ -7,8 +7,6 @@ import {
   useCameraDevice,
   useCameraPermission
 } from 'react-native-vision-camera';
-import * as Speech from 'expo-speech';
-
 //hooks, utils, ui
 import { DetectionOverlay } from './src/components/DetectionOverlay';
 import { DetectionControls } from './src/components/DetectionControls';
