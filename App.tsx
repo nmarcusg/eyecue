@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback} from 'react';
 import { Button, StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -25,7 +25,7 @@ export default function App() {
 
   const { model, state } = useModelSetup();
 
-  const handleDetectionCallback = (name: string) => {
+  const handleDetectionCallback = useCallback((name: string) => {
     setLabel(name);
 
     const now = Date.now();
@@ -34,9 +34,9 @@ export default function App() {
       Speech.speak(name);
       lastSpokenTimestamp.current = now;
     }
-  }
+  },[]);
   
-  const frameProcessor = useObjectDetection(model, handleDetectionCallback);
+  const frameProcessor = useObjectDetection (model, handleDetectionCallback);
 
 
   if (state === 'loading') {
