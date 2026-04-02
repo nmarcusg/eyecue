@@ -1,13 +1,22 @@
+<<<<<<< HEAD
 import { useResizePlugin } from 'vision-camera-resize-plugin';
 import { useSharedValue, Worklets } from 'react-native-worklets-core';
 import { useFrameProcessor } from 'react-native-vision-camera';
 import { COCO_LABELS } from '../constants/cocoLabels';
 import { useTensorflowModel } from 'react-native-fast-tflite';
+=======
+  import { useResizePlugin } from 'vision-camera-resize-plugin';
+  import { useSharedValue, Worklets } from 'react-native-worklets-core';
+  import { useFrameProcessor } from 'react-native-vision-camera';
+  import { COCO_LABELS } from '../constants/cocoLabels';
+  import { useTensorflowModel } from 'react-native-fast-tflite';
+>>>>>>> refactor/core
 
-type TfliteModel = ReturnType<typeof useTensorflowModel>['model'];
-type DetectionCallback = (label: string) => void;
-type InferenceOutputs = readonly [Float32Array, ...unknown[]];
+  type TfliteModel = ReturnType<typeof useTensorflowModel>['model'];
+  type DetectionCallback = (label: string) => void;
+  type InferenceOutputs = readonly[Float32Array, ...unknown[]];
 
+<<<<<<< HEAD
 const NUM_BOXES = 8400;
 const NUM_FEATURES = 84;
 const CONFIDENCE_THRESHOLD = 0.5;
@@ -20,13 +29,30 @@ export function useObjectDetection(
   const { resize } = useResizePlugin();
   const runOnJs = Worklets.createRunOnJS(onDetection);
   const lastRunTime = useSharedValue(0);
+=======
+  const NUM_BOXES = 8400;
+  const NUM_FEATURES = 84;
+  const CONFIDENCE_THRESHOLD = 0.5; 
+  const INFERENCE_INTERVAL_MS = 300; 
 
-  const frameProcessor = useFrameProcessor(
-    (frame) => {
-      'worklet';
+  export function useObjectDetection(
+    model: TfliteModel,
+    isDetecting: boolean,
+    onDetection: DetectionCallback
+  ) {
+    const { resize } = useResizePlugin();
+    const runOnJs = Worklets.createRunOnJS(onDetection);
+    const lastRunTime = useSharedValue(0);
+    const lastClassIndex = useSharedValue(-1);
+>>>>>>> refactor/core
 
-      if (model == null) return;
+    const frameProcessor = useFrameProcessor(
+      (frame) => {
+        'worklet';
 
+        if (model == null || !isDetecting) return;
+
+<<<<<<< HEAD
 
       //throttle inference to prevent overload
       const now = Date.now();
@@ -60,8 +86,15 @@ export function useObjectDetection(
             maxScore = score;
             classIndex = j - 4;
           }
+=======
+        const now = Date.now();
+        if (now - lastRunTime.value < INFERENCE_INTERVAL_MS) {
+          return;
+>>>>>>> refactor/core
         }
+        lastRunTime.value = now;
 
+<<<<<<< HEAD
         if (maxScore > bestOverallScore) {
           bestOverallScore = maxScore;
           bestOverallClassIndex = classIndex;
@@ -83,6 +116,57 @@ export function useObjectDetection(
     }},  
     [model, runOnJs, lastRunTime]
   );
+=======
+        try {
+          const resized = resize(frame, {
+            scale: { width: 640, height: 640 },
+            pixelFormat: 'rgb',
+            dataType: 'float32',
+          });
 
-  return frameProcessor;
-}
+          const outputs = model.runSync([resized]) as unknown as InferenceOutputs;
+          const detectionData = outputs[0];
+
+          let bestOverallScore = 0;
+          let bestOverallClassIndex = -1;
+>>>>>>> refactor/core
+
+          for (let i = 0; i < NUM_BOXES; i++) {
+            let maxScore = 0;
+            let classIndex = -1;
+
+            for (let j = 4; j < NUM_FEATURES; j++) {
+              const score = detectionData[j * NUM_BOXES + i];
+              if (score > maxScore) {
+                maxScore = score;
+                classIndex = j - 4;
+              }
+            }
+
+            if (maxScore > bestOverallScore) {
+              bestOverallScore = maxScore;
+              bestOverallClassIndex = classIndex;
+            }
+          }
+
+          if (
+            bestOverallScore > CONFIDENCE_THRESHOLD &&
+            bestOverallClassIndex >= 0 &&
+            bestOverallClassIndex < COCO_LABELS.length && 
+            bestOverallClassIndex != lastClassIndex.value
+          ) {
+            lastClassIndex.value = bestOverallClassIndex;
+            const name = COCO_LABELS[bestOverallClassIndex];
+            if (name) {
+              runOnJs(name);
+            }
+          }
+        } catch (error) {
+          // check inference errors
+          console.error("Inference Error:", error);
+        }
+      },[model, runOnJs, isDetecting]
+    );
+
+    return frameProcessor;  
+  }
