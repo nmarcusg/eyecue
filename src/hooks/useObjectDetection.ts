@@ -1,62 +1,89 @@
-import { useResizePlugin } from 'vision-camera-resize-plugin';
-import { Worklets } from 'react-native-worklets-core';
-import { useFrameProcessor } from 'react-native-vision-camera';
-import { COCO_LABELS } from '../constants/cocoLabels';
-import { useTensorflowModel } from 'react-native-fast-tflite';
+  import { useResizePlugin } from 'vision-camera-resize-plugin';
+  import { useSharedValue, Worklets } from 'react-native-worklets-core';
+  import { useFrameProcessor } from 'react-native-vision-camera';
+  import { COCO_LABELS } from '../constants/cocoLabels';
+  import { useTensorflowModel } from 'react-native-fast-tflite';
 
-type TfliteModel = ReturnType<typeof useTensorflowModel>['model'];
-type DetectionCallback = (label: string) => void;
-type InferenceOutputs = readonly [Float32Array, ...unknown[]];
+  type TfliteModel = ReturnType<typeof useTensorflowModel>['model'];
+  type DetectionCallback = (label: string) => void;
+  type InferenceOutputs = readonly[Float32Array, ...unknown[]];
 
-const NUM_BOXES = 8400;
-const NUM_FEATURES = 84;
-const CONFIDENCE_THRESHOLD = 0.5;
+  const NUM_BOXES = 8400;
+  const NUM_FEATURES = 84;
+  const CONFIDENCE_THRESHOLD = 0.5; 
+  const INFERENCE_INTERVAL_MS = 300; 
 
-export function useObjectDetection(
-  model: TfliteModel,
-  onDetection: DetectionCallback
-) {
-  const { resize } = useResizePlugin();
-  const runOnJs = Worklets.createRunOnJS(onDetection);
+  export function useObjectDetection(
+    model: TfliteModel,
+    isDetecting: boolean,
+    onDetection: DetectionCallback
+  ) {
+    const { resize } = useResizePlugin();
+    const runOnJs = Worklets.createRunOnJS(onDetection);
+    const lastRunTime = useSharedValue(0);
+    const lastClassIndex = useSharedValue(-1);
 
-  const frameProcessor = useFrameProcessor(
-    (frame) => {
-      'worklet';
+    const frameProcessor = useFrameProcessor(
+      (frame) => {
+        'worklet';
 
-      if (model == null) return;
+        if (model == null || !isDetecting) return;
 
-      const resized = resize(frame, {
-        scale: { width: 640, height: 640 },
-        pixelFormat: 'rgb',
-        dataType: 'float32',
-      });
-
-      const outputs = model.runSync([resized]) as unknown as InferenceOutputs;
-      const detectionData = outputs[0];
-
-      for (let i = 0; i < NUM_BOXES; i++) {
-        let maxScore = 0;
-        let classIndex = -1;
-
-        for (let j = 4; j < NUM_FEATURES; j++) {
-          const score = detectionData[j * NUM_BOXES + i];
-          if (score > maxScore) {
-            maxScore = score;
-            classIndex = j - 4;
-          }
+        const now = Date.now();
+        if (now - lastRunTime.value < INFERENCE_INTERVAL_MS) {
+          return;
         }
+        lastRunTime.value = now;
 
-        if (maxScore <= CONFIDENCE_THRESHOLD) continue;
-        if (classIndex < 0 || classIndex >= COCO_LABELS.length) continue;
+        try {
+          const resized = resize(frame, {
+            scale: { width: 640, height: 640 },
+            pixelFormat: 'rgb',
+            dataType: 'float32',
+          });
 
-        const name = COCO_LABELS[classIndex];
-        if (!name) continue;
+          const outputs = model.runSync([resized]) as unknown as InferenceOutputs;
+          const detectionData = outputs[0];
 
-        runOnJs(name);
-      }
-    },
-    [model, runOnJs]
-  );
+          let bestOverallScore = 0;
+          let bestOverallClassIndex = -1;
 
-  return frameProcessor;
-}
+          for (let i = 0; i < NUM_BOXES; i++) {
+            let maxScore = 0;
+            let classIndex = -1;
+
+            for (let j = 4; j < NUM_FEATURES; j++) {
+              const score = detectionData[j * NUM_BOXES + i];
+              if (score > maxScore) {
+                maxScore = score;
+                classIndex = j - 4;
+              }
+            }
+
+            if (maxScore > bestOverallScore) {
+              bestOverallScore = maxScore;
+              bestOverallClassIndex = classIndex;
+            }
+          }
+
+          if (
+            bestOverallScore > CONFIDENCE_THRESHOLD &&
+            bestOverallClassIndex >= 0 &&
+            bestOverallClassIndex < COCO_LABELS.length && 
+            bestOverallClassIndex != lastClassIndex.value
+          ) {
+            lastClassIndex.value = bestOverallClassIndex;
+            const name = COCO_LABELS[bestOverallClassIndex];
+            if (name) {
+              runOnJs(name);
+            }
+          }
+        } catch (error) {
+          // check inference errors
+          console.error("Inference Error:", error);
+        }
+      },[model, runOnJs, isDetecting]
+    );
+
+    return frameProcessor;  
+  }
